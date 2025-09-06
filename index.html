@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>प्रीमियम वीडियो चैट</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a1a2e;
+            color: #e5e7eb;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1.5rem;
+        }
+        .container {
+            width: 100%;
+            max-width: 900px;
+            background-color: #162447;
+            padding: 2.5rem;
+            border-radius: 2rem;
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4);
+            text-align: center;
+            border: 1px solid #2a3a5b;
+            animation: fadeIn 0.8s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .initial-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            justify-content: center;
+        }
+        .input-group {
+            display: none;
+            flex-direction: column;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        @media (min-width: 640px) {
+            .initial-actions {
+                flex-direction: row;
+            }
+            .input-group {
+                flex-direction: row;
+                gap: 1rem;
+            }
+        }
+        #roomCodeInput {
+            flex-grow: 1;
+            background-color: #1f3050;
+            border: 2px solid #3c5480;
+            color: #e5e7eb;
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.75rem;
+            transition: all 0.3s ease;
+        }
+        #roomCodeInput::placeholder {
+            color: #6b7280;
+        }
+        #roomCodeInput:focus {
+            outline: none;
+            border-color: #794bc4;
+            box-shadow: 0 0 0 3px rgba(121, 75, 196, 0.5);
+        }
+        .btn {
+            background-color: #794bc4;
+            color: white;
+            font-weight: 600;
+            padding: 0.75rem 2rem;
+            border-radius: 0.75rem;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            cursor: pointer;
+            border: none;
+            flex-shrink: 0;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+        .btn:hover {
+            background-color: #6333a4;
+            transform: translateY(-2px);
+        }
+        .message-box {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.75rem;
+            border-radius: 0.75rem;
+            background-color: #2a3a5b;
+            margin-bottom: 1.5rem;
+            opacity: 0;
+            transform: translateY(10px);
+            animation: showMessage 0.5s ease-in-out forwards;
+        }
+        @keyframes showMessage {
+            to { opacity: 1; transform: translateY(0); }
+        }
+        #video-container {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            margin-top: 2rem;
+            background-color: #1f3050;
+            border-radius: 1.5rem;
+            overflow: hidden;
+            border: 2px solid #3c5480;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
+            display: none;
+        }
+        #video-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 flex items-center justify-center p-4">
+    <div class="container">
+        <h1 class="text-4xl font-extrabold text-white mb-2">प्रीमियम वीडियो चैट</h1>
+        <p class="text-md text-gray-400 mb-8">अपने दोस्तों के साथ जुड़ें - कोई पंजीकरण नहीं, बस एक रूम कोड</p>
+
+        <!-- Initial action buttons -->
+        <div id="initial-actions" class="initial-actions">
+            <button id="createButton" class="btn text-lg">नया रूम बनाएँ</button>
+            <button id="showJoinInputButton" class="btn text-lg bg-gray-600 hover:bg-gray-700">रूम में शामिल हों</button>
+        </div>
+
+        <!-- Join room input group (initially hidden) -->
+        <div id="join-input-group" class="input-group">
+            <input type="text" id="roomCodeInput" placeholder="रूम कोड दर्ज करें">
+            <button id="joinButton" class="btn">शामिल हों</button>
+        </div>
+
+        <!-- Message box (initially hidden) -->
+        <div id="message-box" class="message-box">
+            <span>आपका रूम कोड: <span id="displayRoomCode" class="font-bold"></span></span>
+            <button id="copyButton" class="btn text-xs py-1 px-2 hover:bg-white hover:text-gray-800 transition-colors">कॉपी करें</button>
+        </div>
+
+        <!-- Video container (initially hidden) -->
+        <div id="video-container" class="video-container">
+            <iframe id="video-frame" allow="camera; microphone; display-capture"></iframe>
+        </div>
+    </div>
+
+    <script>
+        // DOM elements
+        const initialActions = document.getElementById('initial-actions');
+        const createButton = document.getElementById('createButton');
+        const showJoinInputButton = document.getElementById('showJoinInputButton');
+        const joinInputGroup = document.getElementById('join-input-group');
+        const roomCodeInput = document.getElementById('roomCodeInput');
+        const joinButton = document.getElementById('joinButton');
+        const videoContainer = document.getElementById('video-container');
+        const videoFrame = document.getElementById('video-frame');
+        const messageBox = document.getElementById('message-box');
+        const displayRoomCode = document.getElementById('displayRoomCode');
+        const copyButton = document.getElementById('copyButton');
+
+        // Function to start the video call
+        function startVideoCall(roomCode) {
+            // Encode the room code to handle special characters
+            const jitsiUrl = `https://meet.jit.si/${encodeURIComponent(roomCode)}#userInfo.displayName=Guest&config.startWithAudioMuted=false&config.startWithVideoMuted=false`;
+            
+            // Display the video container and load the URL
+            videoFrame.src = jitsiUrl;
+            videoContainer.style.display = 'block';
+
+            // Hide initial and join elements
+            initialActions.style.display = 'none';
+            joinInputGroup.style.display = 'none';
+            
+            // Show message box with the room code
+            messageBox.classList.remove('hidden');
+            messageBox.style.display = 'flex';
+            displayRoomCode.textContent = roomCode;
+        }
+
+        // Event listener for "Create New Room" button
+        createButton.addEventListener('click', () => {
+            // Generate a unique room code
+            const newRoomCode = 'gemini-call-' + Math.random().toString(36).substring(2, 10);
+            startVideoCall(newRoomCode);
+            showMessage("आपका नया वीडियो रूम तैयार है! कोड अपने दोस्तों के साथ शेयर करें।", "green");
+        });
+
+        // Event listener for "Show Join Input" button
+        showJoinInputButton.addEventListener('click', () => {
+            initialActions.style.display = 'none';
+            joinInputGroup.style.display = 'flex';
+            roomCodeInput.focus();
+        });
+
+        // Event listener for "Join" button
+        joinButton.addEventListener('click', () => {
+            const roomCode = roomCodeInput.value.trim();
+            if (roomCode === "") {
+                showMessage("कृपया एक रूम कोड दर्ज करें।", "red");
+                return;
+            }
+            startVideoCall(roomCode);
+            showMessage("आप रूम में शामिल हो गए हैं।", "green");
+        });
+
+        // Event listener for "Copy" button
+        copyButton.addEventListener('click', () => {
+            const roomCode = displayRoomCode.textContent;
+            copyToClipboard(roomCode);
+        });
+
+        // Function to show temporary message box
+        function showMessage(message, type) {
+            const existingMessage = document.querySelector('.temp-message');
+            if (existingMessage) {
+                existingMessage.remove();
+            }
+
+            const tempMessage = document.createElement('div');
+            tempMessage.className = `temp-message text-center rounded-lg p-3 text-sm font-semibold mt-4 transition-all duration-300 transform translate-y-4 opacity-0`;
+            tempMessage.textContent = message;
+
+            if (type === "green") {
+                tempMessage.style.backgroundColor = '#10B981';
+            } else if (type === "red") {
+                tempMessage.style.backgroundColor = '#EF4444';
+            } else {
+                tempMessage.style.backgroundColor = '#3b82f6';
+            }
+
+            document.querySelector('.container').insertBefore(tempMessage, document.getElementById('video-container'));
+            setTimeout(() => {
+                tempMessage.style.opacity = '1';
+                tempMessage.style.transform = 'translateY(0)';
+            }, 50);
+
+            setTimeout(() => {
+                tempMessage.style.opacity = '0';
+                tempMessage.style.transform = 'translateY(-10px)';
+                setTimeout(() => tempMessage.remove(), 500);
+            }, 4000);
+        }
+
+        // Function to copy text to clipboard
+        function copyToClipboard(text) {
+            const tempInput = document.createElement('textarea');
+            tempInput.value = text;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+            showMessage("कोड कॉपी हो गया है!", "blue");
+        }
+
+        // Set focus on load for better UX
+        window.onload = function() {
+            createButton.focus();
+        };
+
+    </script>
+</body>
+</html>
